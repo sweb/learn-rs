@@ -123,15 +123,17 @@ type NodeId = usize;
 /// Elements of a decision tree
 struct Node {
     region: Region,
+    depth: usize,
     boundary: Option<SplitBoundary>,
     left_child: Option<NodeId>,
     right_child: Option<NodeId>,
 }
 
 impl Node {
-    pub fn new(region: Region) -> Self {
+    pub fn new(region: Region, depth: usize) -> Self {
         Node {
             region,
+            depth,
             boundary: None,
             left_child: None,
             right_child: None,
@@ -147,8 +149,8 @@ pub struct Tree {
 }
 
 impl Tree {
-    pub fn new(x: Array2<f64>, y: Array1<f64>, min_node_size: usize) -> Self {
-        let root = Node::new(Region::from_arrays(x, y));
+    pub fn new(x: Array2<f64>, y: Array1<f64>, min_node_size: usize, max_depth: usize) -> Self {
+        let root = Node::new(Region::from_arrays(x, y), 0);
         let mut result = Tree { nodes: Vec::new() };
 
         let root_id = result.insert_node(root);
@@ -157,11 +159,16 @@ impl Tree {
         while let Some(current_node_id) = stack.pop() {
             let current_node = &mut result.nodes[current_node_id];
 
+            if current_node.depth >= max_depth {
+                continue
+            }
+
             let boundary = current_node.region.choose_overall().unwrap();
             let (r1, r2) = current_node.region.partition(boundary.j, boundary.s);
             if r1.size() >= min_node_size && r2.size() >= min_node_size {
-                let n1 = Node::new(r1);
-                let n2 = Node::new(r2);
+                let depth = current_node.depth + 1;
+                let n1 = Node::new(r1, depth);
+                let n2 = Node::new(r2, depth);
 
                 let (n1_id, n2_id) = result.update_to_interior(boundary, current_node_id, n1, n2);
 
@@ -286,7 +293,7 @@ mod tests {
         let x = arr2(features);
         let y = arr1(&[0.9, 0., 1.]);
 
-        let tree = Tree::new(x, y, 1);
+        let tree = Tree::new(x, y, 1, 3);
 
         assert_eq!(5, tree.nodes.len());
         assert_eq!(1, tree.nodes[0].boundary.as_ref().unwrap().j);
@@ -302,7 +309,7 @@ mod tests {
         let x = arr2(features);
         let y = arr1(&[0.9, 0., 1.]);
 
-        let tree = Tree::new(x, y, 1);
+        let tree = Tree::new(x, y, 1, 3);
 
         assert_eq!(0.9, tree.predict(arr1(&[2., 2., 6.,])));
         assert_eq!(0., tree.predict(arr1(&[2., 4., 6.,])));

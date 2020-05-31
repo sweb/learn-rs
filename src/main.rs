@@ -91,6 +91,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         train_dataset.features.clone(),
         train_dataset.labels.clone(),
         5,
+        7,
     );
     let end_training = start_training.elapsed().unwrap().as_millis();
     println!("Training took {} ms", end_training);
